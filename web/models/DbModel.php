@@ -7,14 +7,20 @@ class DbModel extends Model {
 		$st->execute(array());
 		return $st;
 	}
-	
+
+	public function validate() {
+		
+	}
+
 	public function save(Db $db) {
-		$values = $fields = array();
+		$this->validate();
+		$values_wildcard = $values = $fields = array();
 		foreach ($this->getFields() as $field) {
 			$fields[] = $field;
-			$values[] = $db->quote($this->$field, PDO::PARAM_STR);
+			$values[] = $this->$field;
+			$values_wildcard[] = '?';
 		}
-		$db->query('INSERT INTO ' . get_called_class() . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values) . ');');
+		$db->q('INSERT INTO ' . get_called_class() . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values_wildcard) . ');', $values);
 	}
 	
 	public function getFields() {
@@ -30,8 +36,8 @@ class DbModel extends Model {
 		return $fields;
 	}
 	
-	static public function upgradeTable(Db $db, $classModel) {
-		//$classModel = get_called_class();
+	static public function upgradeTable(Db $db, $classModel = NULL) {
+		if ($classModel === NULL) $classModel = get_called_class();
 
 		$propertiesInfo = array();
 		$indexes = array();
@@ -50,10 +56,10 @@ class DbModel extends Model {
 				if (preg_match('/@\\s*(\\w+)\\s*([$\\w+]+)?/msi', $propertyDocLine, $matches)) {
 					switch ($matches[1]) {
 						case 'unique':
-							$indexes[] = (object)array('type' => 'UNIQUE INDEX', 'names' => array($propertyName));
+							$indexes[] = (object)array('type' => 'UNIQUE INDEX', 'name' => 'unique_' . $propertyName, 'fields' => array($propertyName));
 						break;
 						case 'index':
-							$indexes[] = (object)array('type' => 'INDEX', 'names' => array($propertyName));
+							$indexes[] = (object)array('type' => 'INDEX', 'name' => 'index_' . $propertyName, 'fields' => array($propertyName));
 						break;
 						case 'var':
 							$propertyInfo->type = $matches[2];
@@ -81,14 +87,11 @@ class DbModel extends Model {
 		
 		$db->beginTransaction();
 		{
-			try {
-				$db->query('CREATE TABLE ' . $classModelTemp . '(' . implode(', ', $properties) . ');');
-			} catch (Exception $e) {
-			}
+			$db->query('DROP TABLE IF EXISTS ' . $classModelTemp . ';');
+			$db->query('CREATE TABLE ' . $classModelTemp . '(' . implode(', ', $properties) . ');');
 			
 			foreach ($indexes as $index) {
-				$index_name = 'index_' .  implode('_', $index->names);
-				$db->query('CREATE ' . $index->type . ' IF NOT EXISTS ' . $index_name . ' ON ' . $classModelTemp . '(' . implode(', ', $index->names) . ');');
+				$db->query('CREATE ' . $index->type . ' IF NOT EXISTS ' . $index->name . ' ON ' . $classModelTemp . '(' . implode(', ', $index->fields) . ');');
 			}
 			//echo $sql;
 	
@@ -99,7 +102,7 @@ class DbModel extends Model {
 			$intersect_properties_str = implode(',', $intersect_properties);
 			
 			try {
-				$db->query('INSERT INTO ' . $classModelTemp . ' (' . $intersect_properties_str . ') SELECT ' . $intersect_properties_str . ' FROM ' . $classModel . ';');
+				$db->query('INSERT OR IGNORE INTO ' . $classModelTemp . ' (' . $intersect_properties_str . ') SELECT ' . $intersect_properties_str . ' FROM ' . $classModel . ';');
 			} catch (Exception $e) {
 				
 			}

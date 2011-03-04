@@ -25,7 +25,14 @@ class UserModel extends DbModel {
 	 *  
 	 * @var string
 	 */
-	protected $password;
+	protected $passwordHash;
+	
+	/**
+	 * Determines if the user can create projects.
+	 * 
+	 * @var boolean
+	 */
+	public $can_create_projects = false;
 
 	/**
 	 * Returns the has of an specified password.
@@ -36,7 +43,16 @@ class UserModel extends DbModel {
 		return md5('nfsbugtracker-' . $password);
 	}
 	
+	public function getPasswordHash() {
+		return $this->passwordHash;
+	}
+	
 	public function setPassword($password) {
-		$this->password = $this->passwordHash($password);
+		$this->passwordHash = $this->passwordHash($password);
+	}
+	
+	public function validate() {
+		if (!preg_match('@^\\w{3,16}$@', $this->name)) throw(new Exception("User name must contain at least 3 leters and 16 at most"));
+		if (empty($this->passwordHash)) throw(new Exception("Password must be setted"));
 	}
 }
