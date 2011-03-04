@@ -91,7 +91,9 @@ class DbModel extends Model {
 			$db->query('CREATE TABLE ' . $classModelTemp . '(' . implode(', ', $properties) . ');');
 			
 			foreach ($indexes as $index) {
-				$db->query('CREATE ' . $index->type . ' IF NOT EXISTS ' . $index->name . ' ON ' . $classModelTemp . '(' . implode(', ', $index->fields) . ');');
+				$db->query($sql = 'DROP INDEX IF EXISTS ' . $index->name . ';');
+				$db->query($sql = 'CREATE ' . $index->type . ' ' . $index->name . ' ON ' . $classModelTemp . '(' . implode(', ', $index->fields) . ');');
+				//echo "$sql\n";
 			}
 			//echo $sql;
 	
