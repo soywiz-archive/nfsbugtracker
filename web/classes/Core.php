@@ -20,4 +20,8 @@ class Core {
 	}
 }
 
+function print_r_pre($var) {
+	echo '<pre>', htmlspecialchars(print_r($var, true)), '</pre>';
+}
+
 Core::register_autoload();

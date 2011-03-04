@@ -1,8 +1,10 @@
 <?php
 
 class DbModel extends Model {
+	//public $db;
+	
 	static public function getAll(Db $db) {
-		$st = $db->query('SELECT * FROM ' . get_called_class() . ';');
+		$st = $db->query('SELECT ROWID, * FROM ' . get_called_class() . ';');
 		$st->setFetchMode(PDO::FETCH_CLASS | PDO::FETCH_PROPS_LATE, get_called_class()); 
 		$st->execute(array());
 		return $st;
@@ -14,13 +16,28 @@ class DbModel extends Model {
 
 	public function save(Db $db) {
 		$this->validate();
-		$values_wildcard = $values = $fields = array();
-		foreach ($this->getFields() as $field) {
-			$fields[] = $field;
-			$values[] = $this->$field;
-			$values_wildcard[] = '?';
+		if (isset($this->rowid)) {
+			$values = $sets = array();
+			foreach ($this->getFields() as $field) {
+				$sets[] = $field . '=?';
+				$values[] = $this->$field;
+			}
+			$values[] = $this->rowid;
+			$db->q('UPDATE ' . get_called_class() . ' SET ' . implode(', ', $sets) . ' WHERE rowid=?;', $values);
+		} else {
+			$values_wildcard = $values = $fields = array();
+			foreach ($this->getFields() as $field) {
+				$fields[] = $field;
+				$values[] = $this->$field;
+				$values_wildcard[] = '?';
+			}
+			$db->q('INSERT INTO ' . get_called_class() . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values_wildcard) . ');', $values);
 		}
-		$db->q('INSERT INTO ' . get_called_class() . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values_wildcard) . ');', $values);
+	}
+	
+	public function delete(Db $db) {
+		if (!isset($this->rowid)) throw(new Exception("Can't delete model because not saved yet"));
+		$db->q('DELETE FROM ' . get_called_class() . ' WHERE ROWID=?;', array($this->rowid));
 	}
 	
 	public function getFields() {
@@ -50,6 +67,8 @@ class DbModel extends Model {
 			$propertyInfo = (object)array(
 				'type'  => 'string',
 			);
+			
+			if ($propertyName == 'ROWID') continue;
 			
 			foreach (explode("\n", $propertyDoc) as $propertyDocLine) {
 				$propertyDocLine = trim($propertyDocLine, " \t*");

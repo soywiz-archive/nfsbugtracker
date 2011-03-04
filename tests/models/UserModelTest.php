@@ -16,7 +16,7 @@ class UserModelTest extends PHPUnit_Framework_TestCase {
 		$user->setPassword('test');
 		$user->save($this->db);
 		
-		$this->assertEquals(1, count(UserModel::getAll($this->db)));
+		$this->assertEquals(1, iterator_count(UserModel::getAll($this->db)));
 		$this->assertNotEquals('test', $user->getPasswordHash());
 	}
 
