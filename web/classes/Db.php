@@ -34,6 +34,16 @@ class Db extends PDO {
 		}
 		return $fields;
 	}
+	
+	public function getTableIndexes($tableName) {
+		$indexes = array();
+		foreach ($this->q("SELECT * FROM sqlite_master WHERE type=? AND tbl_name=?;", array('index', $tableName)) as $row) {
+			$sql = $row['sql'];
+			preg_match('@^CREATE\\s+((UNIQUE\\s+)?INDEX)@msi', $sql, $matches);
+			$indexes[$row['name']] = $matches[1];
+		}
+		return $indexes;
+	}
 
 	/**
 	 * @param string $model
@@ -58,5 +68,44 @@ class Db extends PDO {
 		$wheres = array_map(function($v) { return "{$v}=?"; }, array_keys($where));
 		$values = array_values($where);
 		$this->q('DELETE FROM ' . $table . ' WHERE ' . implode(' AND ', $wheres) . ';', $values);
+	}
+	
+	public function updateTableSchema($table, $propertiesInfo, $indexes) {
+		$tableTemp = $table . 'Temp';
+
+		$properties = array();
+		foreach ($propertiesInfo as $propertyName => $propertyInfo) {
+			$properties[] = $propertyName;
+		}
+		
+		
+		$this->beginTransaction();
+		{
+			$this->query('DROP TABLE IF EXISTS ' . $tableTemp . ';');
+			$this->query('CREATE TABLE ' . $tableTemp . '(' . implode(', ', $properties) . ');');
+			
+			foreach ($indexes as $index) {
+				$this->query($sql = 'DROP INDEX IF EXISTS ' . $index->name . ';');
+				$this->query($sql = 'CREATE ' . $index->type . ' ' . $index->name . ' ON ' . $tableTemp . '(' . implode(', ', $index->fields) . ');');
+				//echo "$sql\n";
+			}
+			//echo $sql;
+	
+			$current_properties = $this->getTableFields($table);
+			$required_properties = array_keys($propertiesInfo);
+			
+			$intersect_properties = array_intersect($required_properties, $current_properties);
+			$intersect_properties_str = implode(',', $intersect_properties);
+			
+			try {
+				$this->query('INSERT OR IGNORE INTO ' . $tableTemp . ' (' . $intersect_properties_str . ') SELECT ' . $intersect_properties_str . ' FROM ' . $table . ';');
+			} catch (Exception $e) {
+				
+			}
+			
+			$this->query('DROP TABLE IF EXISTS ' . $table . ';');
+			$this->query('ALTER TABLE ' . $tableTemp . ' RENAME TO ' . $table . ';');
+		}
+		$this->commit();
 	}
 }
