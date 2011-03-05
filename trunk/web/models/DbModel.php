@@ -96,49 +96,7 @@ class DbModel extends Model {
 			
 		}
 		
-		//echo '<pre>';
-		//print_r($propertiesInfo);
-		//print_r($indexes);
-		
-		$classModelTemp = $classModel . 'Temp';
-		
-		$properties = array();
-		foreach ($propertiesInfo as $propertyName => $propertyInfo) {
-			$properties[] = $propertyName;
-		}
-		
-		$db->beginTransaction();
-		{
-			$db->query('DROP TABLE IF EXISTS ' . $classModelTemp . ';');
-			$db->query('CREATE TABLE ' . $classModelTemp . '(' . implode(', ', $properties) . ');');
-			
-			foreach ($indexes as $index) {
-				$db->query($sql = 'DROP INDEX IF EXISTS ' . $index->name . ';');
-				$db->query($sql = 'CREATE ' . $index->type . ' ' . $index->name . ' ON ' . $classModelTemp . '(' . implode(', ', $index->fields) . ');');
-				//echo "$sql\n";
-			}
-			//echo $sql;
-	
-			$current_properties = $db->getTableFields($classModel);
-			$required_properties = array_keys($propertiesInfo);
-			
-			$intersect_properties = array_intersect($required_properties, $current_properties);
-			$intersect_properties_str = implode(',', $intersect_properties);
-			
-			try {
-				$db->query('INSERT OR IGNORE INTO ' . $classModelTemp . ' (' . $intersect_properties_str . ') SELECT ' . $intersect_properties_str . ' FROM ' . $classModel . ';');
-			} catch (Exception $e) {
-				
-			}
-			
-			$db->query('DROP TABLE IF EXISTS ' . $classModel . ';');
-			$db->query('ALTER TABLE ' . $classModelTemp . ' RENAME TO ' . $classModel . ';');
-		}
-		$db->commit();
-		//INSERT INTO table (name1, name2) SELECT name1, name2 FROM table;
-		
-		//$properties_to_delete = array_diff($current_properties, $required_properties);
-		//$properties_to_add = array_diff($required_properties, $current_properties);
+		$db->updateTableSchema($classModel, $propertiesInfo, $indexes);
 	}
 	
 	static public function upgradeTables(Db $db) {

@@ -1,0 +1,9 @@
+<phpunit>
+	<testsuites>
+		<testsuite name="all">
+			<directory>classes</directory>
+			<directory>models</directory>
+			<directory>controllers</directory>
+		</testsuite>
+	</testsuites>
+</phpunit>
