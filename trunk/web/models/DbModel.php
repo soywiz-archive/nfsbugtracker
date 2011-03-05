@@ -3,11 +3,22 @@
 class DbModel extends Model {
 	//public $db;
 	
+	/**
+	 * Enter description here ...
+	 * @param Db $db
+	 * @return DbModelQuery
+	 */
 	static public function getAll(Db $db) {
-		$st = $db->query('SELECT ROWID, * FROM ' . get_called_class() . ';');
-		$st->setFetchMode(PDO::FETCH_CLASS | PDO::FETCH_PROPS_LATE, get_called_class()); 
-		$st->execute(array());
-		return $st;
+		return static::select($db);
+	}
+
+	/**
+	 * Enter description here ...
+	 * @param Db $db
+	 * @return DbModelQuery
+	 */
+	static public function select(Db $db) {
+		return $db->select(get_called_class());
 	}
 
 	public function validate() {
@@ -16,28 +27,20 @@ class DbModel extends Model {
 
 	public function save(Db $db) {
 		$this->validate();
+
+		$sets = array(); foreach ($this->getFields() as $field) $sets[$field] = $this->$field;
+
 		if (isset($this->rowid)) {
-			$values = $sets = array();
-			foreach ($this->getFields() as $field) {
-				$sets[] = $field . '=?';
-				$values[] = $this->$field;
-			}
-			$values[] = $this->rowid;
-			$db->q('UPDATE ' . get_called_class() . ' SET ' . implode(', ', $sets) . ' WHERE rowid=?;', $values);
+			$db->update(get_called_class(), $sets, array('rowid' => $this->rowid));
 		} else {
-			$values_wildcard = $values = $fields = array();
-			foreach ($this->getFields() as $field) {
-				$fields[] = $field;
-				$values[] = $this->$field;
-				$values_wildcard[] = '?';
-			}
-			$db->q('INSERT INTO ' . get_called_class() . ' (' . implode(',', $fields) . ') VALUES (' . implode(',', $values_wildcard) . ');', $values);
+			$db->insert(get_called_class(), $sets);
+			$this->rowid = $db->lastInsertId();
 		}
 	}
 	
 	public function delete(Db $db) {
 		if (!isset($this->rowid)) throw(new Exception("Can't delete model because not saved yet"));
-		$db->q('DELETE FROM ' . get_called_class() . ' WHERE ROWID=?;', array($this->rowid));
+		$db->delete(get_called_class(), array('rowid' => $this->rowid));
 	}
 	
 	public function getFields() {
