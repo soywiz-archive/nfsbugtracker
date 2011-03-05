@@ -6,7 +6,7 @@ class DbModelTest extends PHPUnit_Framework_TestCase {
 	protected $db;
 	
 	public function setUp() {
-		$this->db = new Db('sqlite::memory:');
+		$this->db = new Db(':memory:');
 		DemoDbModel::upgradeTable($this->db);
 	}
 
@@ -60,6 +60,31 @@ class DbModelTest extends PHPUnit_Framework_TestCase {
 		
 		$rows2 = iterator_to_array(DemoDbModel::getAll($this->db));
 		$this->assertEquals('[{"test":"test2","rowid":"1"}]', json_encode($rows1));
+	}
+	
+	public function testInsertUpdatedRowid() {
+		$a = new DemoDbModel();
+		$a->test = 'test';
+		
+		$this->assertFalse(isset($a->rowid));
+		$a->save($this->db);
+		$this->assertTrue(isset($a->rowid));
+	}
+	
+	public function testUpdateAffectsOne() {
+		$a = new DemoDbModel(); $a->test = 'once_test1'; $a->save($this->db);
+		$b = new DemoDbModel(); $b->test = 'once_test2'; $b->save($this->db);
+
+		$a->test = 'once_test3';
+		$a->save($this->db);
+		
+		$items = iterator_to_array(DemoDbModel::getAll($this->db));
+		$info = json_encode($items);
+		
+		$this->assertEquals(2, count($items));
+		$this->assertRegExp('@once_test3@', $info, 'Row modified');
+		$this->assertRegExp('@once_test2@', $info, 'Row untouched');
+		$this->assertNotRegExp('@once_test1@', $info, "Old row already modified");
 	}
 }
 

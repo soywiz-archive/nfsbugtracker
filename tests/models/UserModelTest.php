@@ -6,7 +6,7 @@ class UserModelTest extends PHPUnit_Framework_TestCase {
 	protected $db;
 	
 	public function setUp() {
-		$this->db = new Db('sqlite::memory:');
+		$this->db = new Db(':memory:');
 		UserModel::upgradeTable($this->db);
 	}
 	
